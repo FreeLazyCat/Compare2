@@ -10,8 +10,10 @@
 #include <cstdlib>
 #include <ctime>
 #include <pthread.h>
-#include<string>
-#include<mysql/mysql.h>
+#include <vector>
+#include <iomanip>
+#include <stdexcept>
+#include <limits>
 
 using namespace std;
 
@@ -22,6 +24,12 @@ struct Atom;
 struct POINT;
 struct VECTOR;
 struct ANGLE;
+struct EnergyValueStruct;
+template <typename _MD>
+struct commonStruct;
+template <typename _MD>
+class Matrix;
+
 
 typedef list<Rep> myRep;            //   a wonderful list, the data struct of the repositpry, which
 typedef const char CONCH;
@@ -30,29 +38,7 @@ typedef const char CONCH;
 
 // fileDisposal
     // Input Data
-class MyDB
-{
-public:
-        char *email;
-        char *timeDir,*jobName;
-        char *id,*inputPop;
-       // char timeDir[50],jobName[50];
-       // char id[50],inputPop[10];
-	MyDB();
-	~MyDB();
-	bool initDB(string host, string user, string pwd, string db_name);
-	bool exeSQL(string sql);
-        int countJudge();
-        int readJob();
-        int deleteFinish();
-        int updateStatus();
-private:
-	MYSQL *connection;
-	MYSQL_RES *result;
-	MYSQL_ROW row;
-};
-//extern char *email;
-//extern char *timeDir,*jobName;
+
 int getLines(char *address);
 void getAtom(Atom *atom, int cntLines, int &atomNum, char *address);        // find the word "ATOM" in the file
 
@@ -68,13 +54,14 @@ void removeFile(const char * str);
 
     // for the object function
 void printPdb(Particle * particle);
+void printPdb(list<Rep>::iterator it, const int &repNum);
     // for debug
         // print rep in several files
 void printRep(myRep & rep, int len);
         // print the particles' status in one file
 void printParticleCost(Particle * particle, int iterator);
     // print answer rep
-    void printAnswer(myRep &rep, ANGLE *angle);
+    void outputAnswer(myRep &rep);
     //  print run time
     void printTime(const int choice, const int loopTimes);
     //  create a new fold for the answer
@@ -85,6 +72,7 @@ void multiplyBetterInput();
 void multiplyParticle(Particle particle, int repNum);
 
 void runScwrl(int index);                   //  run scwrl program after print .pdb
+void removeTmp(int index);
 
 // get the cost for the object function 1 and 2
 double getCost0(int i);
@@ -181,6 +169,11 @@ int getMax(int a, int b);
 
 bool doubleEqual(double a, double b);
 
+//  help to print parameters
+void printPara(char *s, int k);
+void printPara(char *s, double d);
+void printPara(char *s, char *str);
+
 //  convert rotation to coordinary
 void convertRotationToCoordinary(Particle &particle);
 
@@ -216,13 +209,16 @@ void getQ(double Q[4][4], double v[3], double theta);
 
 
 //  get the best reps
-void sortRep(myRep &rep, ANGLE *angle);
+void sortRepByAngle(myRep &rep, ANGLE *angle);
+void sortRepByLambda(myRep &rep);
+void getCostInUnit(myRep &rep, double **costInUnit);
 void getAngle(int i, const POINT *point, ANGLE *angle);
 double vectorDot(VECTOR u, VECTOR v);
 double cross(VECTOR u, VECTOR v);
 double length(VECTOR u);
 bool pdPlusPi(POINT first, POINT second, POINT third);
 void angleQsort(int l, int r, ANGLE *a);
+void energyQsort(int l, int r, EnergyValueStruct *a);
 void pointQsort(int l, int r, POINT *a);
 
 // setTime
@@ -238,7 +234,6 @@ void createPhi(int k);
 bool isImportantAtom(const Atom atom);
 char getAbbreviation(char *str);
 void getArgv();
-void getArgvdb();
 
 // check similarity
 void checkAllParticleSimilarity(Particle *particle);
@@ -259,9 +254,185 @@ void applyVariable();
 void printIn(int option);
 void printOut(int option);
 
+/*
+ * Matrix function
+ */
+/*
+     * Sum of two Matrix
+     */
+template <typename _MD>
+Matrix<_MD> operator+(const Matrix<_MD> &a, const Matrix<_MD> &b);
+
+template <typename _MD>
+Matrix<_MD> operator+(const Matrix<_MD> &a, const _MD &b);
+
+template <typename _MD>
+Matrix<_MD> operator-(const Matrix<_MD> &a, const Matrix<_MD> &b);
+
+Matrix<double> operator-(const Matrix<double> &a, const Matrix<int> &b);
+
+Matrix<double> operator-(const Matrix<int> &a, const Matrix<double> &b);
+
+Matrix<double> operator-(const Matrix<int> &y, const double d);
+
+Matrix<double> operator-(const Matrix<double> &y, const int d);
+
+Matrix<double> operator-(const double d, const Matrix<int> &y);
+
+Matrix<double> operator-(const int d, const Matrix<double> &y);
+
+template <typename _MD>
+Matrix<_MD> operator-(const Matrix<_MD> &y, const _MD d);
+
+template <typename _MD>
+Matrix<_MD> operator-(const _MD d, const Matrix<_MD> &y);
+
+template <typename _MD>
+bool operator==(const Matrix<_MD> &a, const Matrix<_MD> &b);
+
+template <typename _MD>
+Matrix<_MD> operator-(const Matrix<_MD> &a);
+
+template <typename _MD>
+Matrix<_MD> operator-(Matrix<_MD> &&a);
+/*
+ * multiplication of two matrix
+ */
+template <typename _MD>
+Matrix<_MD> operator*(const Matrix<_MD> &a, const Matrix<_MD> &b);
+/*
+ * matrix multiply a number
+ */
+template <typename _MD>
+Matrix<_MD> operator*(const Matrix<_MD> &a, const _MD &b);
+
+template <typename _MD>
+Matrix<_MD> operator*(const _MD &b, const Matrix<_MD> &a);
+
+template <typename _MD>
+Matrix<_MD> operator/(const Matrix<_MD> &a, const _MD &b);
+
+Matrix<double> operator/(const Matrix<double> &a, const int &b);
+
+Matrix<double> operator/(const Matrix<int> &a, const double &b);
+
+/*
+ * if a[i][j] > b[i][j], c[i][j] = 1, or c[i][j] = 0
+ */
+template <typename _MD>
+Matrix<int> operator>(const Matrix<_MD> &a, const Matrix<_MD> &b);
+
+
+/*
+ * if a[i][j] <= b[i][j], c[i][j] = 1, or c[i][j] = 0
+ */
+template <typename _MD>
+Matrix<int> operator<=(const Matrix<_MD> &a, const Matrix<_MD> &b);
+
+/*   .*   规模相同的矩阵对应位置数相乘    mulCorNum(M,M)  //  multiply corresponding number
+     ./  				             divCorNum(M,M)  //  two matrix with the same size
+     .^				                 powCorNum(M,D)  */
+template <typename _MD>
+Matrix<_MD> mulCorNum(const Matrix<_MD> &a, const Matrix<_MD> &b);
+
+Matrix<double> mulCorNum(const Matrix<double> &a, const Matrix<int> &b);
+
+Matrix<double> mulCorNum(const Matrix<int> &a, const Matrix<double> &b);
+
+template <typename _MD>
+Matrix<_MD> divCorNum(const Matrix<_MD> &a, const Matrix<_MD> &b);
+
+Matrix<double> divCorNum(const Matrix<double> &a, const Matrix<int> &b);
+
+Matrix<double> divCorNum(const Matrix<int> &a, const Matrix<double> &b);
+
+template <typename _MD>
+Matrix<_MD> powCorNum(const Matrix<_MD> &a, const int &p);
+
+/*
+ * y = [1,2,3;4,5,6;7,8,9];
+ * y(1,1:3) = [5,6];
+ */
+template <typename _MD>
+Matrix<_MD> getArrayFromMatrix(const Matrix<_MD> &y, const int refRow, const size_t fromCol, const size_t endCol);
+
+Matrix<int> initArray(const int &startNum, const int &delta, const int &endNum);
+
+template <typename _MD>         // repmat(MATRIX, n, m) /  repmat(double, n, m)
+Matrix<_MD> repmat(const Matrix<_MD> &y, int n, int m);
+
+// repmat(MATRIX, n, m) /  repmat(double, n, m)
+Matrix<double> repmat(const double d, int n, int m);
+
+Matrix<int> repmat(const int d, int n, int m);
+
+template <typename _MD>
+Matrix<_MD> transpose(const Matrix<_MD> &a);
+
+//  unit MATRIX
+template <typename _MD>
+Matrix<_MD> I(const size_t &n);
+
+template <typename _MD>
+Matrix<_MD> matPow(Matrix<_MD> mat, int b);
+
+/*
+ * Matrix mat;
+ * mat^(1/2)
+ */
+template <typename _MD>
+Matrix<_MD> matRoot(const Matrix<_MD> &mat, double p);
+
+/*  matrixSort : sort by column
+ *  [ig,p] = sort(rp);    p : the same size with rp, p[i][j] : p[i][j]是rp矩阵j列的第几个
+ */
+template <typename _MD>
+Matrix<int> matrixColSort(const Matrix<_MD> y);
+
+template <typename _MD>
+void colSort(int l, int r, commonStruct<_MD> *a);
+
+/*
+ * MATRIX x, MATRIX y , z = x(y)
+ * the same size with y, z[i][j] is the y[i][j](th) number in x Matrix(column first)
+ */
+template <typename _MD>
+Matrix<_MD> matBracket(const Matrix<_MD> &x, const Matrix<int> &y);
+
+/*
+ * t = [1,2,3; 4,5,6];  j = [2,2,2];
+ * t(0,j) = [3,3,3];
+ * t(1,j) = [6,6,6]
+ * this function is to obtain t(i,j); when j is a matrix
+ */
+template <typename _MD>
+Matrix<_MD> matRowBracket(const Matrix<_MD> &x, const int &i, const Matrix<int> &y);
+
+template <typename _MD>
+_MD getKthNumber(const Matrix<_MD> &mat, int k);
+
+Matrix<double> randMatrix(const int n, const int m);
+
+/*
+ * change 1 to 0 / 0 to 1
+ */
+template <typename _MD>
+Matrix<_MD> NOT(const Matrix<_MD> &y);
+
+template <typename _MD>
+std::ostream &operator<<(std::ostream &os, const Matrix<_MD> &mat);
+
+template <typename _MD>
+Matrix<_MD> inputMatrix(const size_t &n, const size_t &m, const _MD &type);
+
+/*
+ * randFixedSum
+ */
+template <typename _XD>
+Matrix<double> randFixedSum(int n, int m, _XD S, _XD a, _XD b);
+
 //  const statement
 extern const char rootAddress[];
-extern const char cgiAddress[];
 extern char *inputAddress;
 extern char *logAddress;
 extern const char *energyFileAddress;
@@ -289,7 +460,9 @@ extern const double VelMax;             //  =20 without rama_map
 extern int nPop;                  // Population Size
 extern const int nRep;                // Repository Size
 extern int  MaxIt;          // Maximum Number of Iterations
+extern int multiplyNumber; // copy the best input particle
 extern const double Criterion;
+extern const int lambdaLoopTimes;
 extern const int tidSize;
 extern const int answerRepNumber;
 extern time_t starTime;
@@ -300,6 +473,7 @@ extern const double phi1;
 extern const double phi2;
 extern const double phi;
 extern const double chi ;    // 0.73
+extern const int bufferLen;
 
 extern const double wMin;                        //  Inertia Weight
 extern const double wMax;
@@ -312,16 +486,18 @@ extern const int nGrid;               //Number of Grids per each Dimension
 extern const int Beta;                   //Leader Selection Pressure Parameter
 extern const int Gamma;             // Extra (to be deleted) Repository Member Selection Pressure
 
-extern const int numObjective;      //  Multiple Objectives
+extern const int objectiveNumber;      //  Multiple Objectives
 extern const double TM_scoreThreshold; // the threshold of TM-score
 extern const double PI;
-extern const int multiplyNumber;
 extern const double INF;
+extern const double realMax;
+extern const double tiny;
 
 // my tools
 extern Particle *particle;
 extern myRep rep;
 extern ANGLE *angle;
+extern int *sortAns;
 
 //  struct definition
 // pBest
@@ -346,6 +522,7 @@ struct Particle{
     int sizeOfOrigin, sizeOfAddO_origin, sizeOfPosition, sizeOfVelocity;    //  the size of arrays
     int index;
     char *seq;
+    int startNumber;
     structBest Best;                    //  pBest
 };
 
@@ -355,6 +532,9 @@ struct Rep{
     double *Position;
     int sizeOfAddO_origin;
     int iterator;
+    char *seq;
+    int startNumber;
+    int numAA;
 };
 
 struct Atom {
@@ -380,5 +560,87 @@ struct ANGLE{
     double value;
     int id;
 };
+
+struct EnergyValueStruct{
+    double value;
+    int id;
+};
+
+template <typename _MD>
+struct commonStruct{
+    _MD value;
+    int id;
+};
+
+template <typename _MD>
+class Matrix{
+protected:
+    size_t n_rows;
+    size_t n_cols;
+    std::vector<std::vector<_MD>> data;
+    class RowProxy {
+    private:
+        std::vector<_MD> &row;                                   //***** & quote, give a variable another name
+    public:
+        RowProxy(std::vector<_MD> &_row) : row(_row) {}         // ***** &
+        _MD &operator[](const size_t &pos){
+            return row[pos];
+        }
+    };
+    class ConstRowProxy {
+    private:
+        const std::vector<_MD> &row;
+    public:
+        ConstRowProxy(const std::vector<_MD> &_row) : row(_row) {}
+        const _MD &operator[](const size_t &pos) const {
+            return row[pos];
+        }
+    };
+
+public:
+    Matrix() {};
+    Matrix(const size_t &_n_rows, const size_t &_n_cols)
+            : n_rows(_n_rows), n_cols(_n_cols), data(std::vector<std::vector<_MD>>(_n_rows, std::vector<_MD>(n_cols))) {}
+    Matrix(const size_t &_n_rows, const size_t &_n_cols, _MD fillValue)
+            : n_rows(_n_rows), n_cols(_n_cols), data(std::vector<std::vector<_MD>>(_n_rows, std::vector<_MD>(_n_cols, fillValue))) {}
+    Matrix(const Matrix<_MD> &mat)
+            : n_rows(mat.n_rows), n_cols(mat.n_cols), data(mat.data) {}
+    Matrix(Matrix<_MD> &&mat) noexcept
+            : n_rows(mat.n_rows), n_cols(mat.n_cols), data(mat.data) {}
+    Matrix<_MD> & operator=(const Matrix<_MD> &mat){
+        n_rows = mat.n_rows;
+        n_cols = mat.n_cols;
+        data = mat.data;
+        return *this;
+    }
+    Matrix<_MD> &operator=(Matrix<_MD> &&mat){
+        n_rows = mat.n_rows;
+        n_cols = mat.n_cols;
+        data = mat.data;
+        return *this;
+    }
+    inline const size_t & RowSize() const {
+        return n_rows;
+    }
+    inline const size_t & ColSize() const {
+        return n_cols;
+    }
+    RowProxy operator[](const size_t &Kth){
+        return RowProxy(data[Kth]);
+    }
+
+    const ConstRowProxy operator[](const size_t &Kth) const {
+        return ConstRowProxy(data[Kth]);
+    }
+
+    /*
+ * w(i,2:i+1) = tmp1 + tmp2;
+ */
+    Matrix<_MD> matRowChange(const int &row, const int &startCol,
+                             const int &endCol, const Matrix<_MD> &x);
+    ~Matrix() = default;
+};
+
+
 
 #endif // MOPSO_H
